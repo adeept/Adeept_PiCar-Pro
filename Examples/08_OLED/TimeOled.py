@@ -1,8 +1,8 @@
-#!/usr/bin/env/python
-# File name   : TimeOled.py
+#!/usr/bin/env python3 
+# File name   : TimeOLED.py
 # Website     : www.Adeept.com
 # Author      : Adeept
-# Date        : 2025/03/7
+# Date        : 2026/01/29
 import board
 import busio
 import adafruit_ssd1306
@@ -17,7 +17,7 @@ i2c = busio.I2C(board.SCL, board.SDA)
 oled = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c)
 
 # Load the font
-font = ImageFont.load_default()
+font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
 
 def draw_text_with_wrap(draw, text, x, y, font, fill, max_width):
     lines = []
@@ -36,7 +36,9 @@ def draw_text_with_wrap(draw, text, x, y, font, fill, max_width):
 
     for line in lines:
         draw.text((x, y), line, font=font, fill=fill)
-        y += font.getsize(line)[1]
+        bbox = draw.textbbox((x, y), line, font=font)
+        line_height = bbox[3] - bbox[1]
+        y += line_height
 
 try:
     while True:

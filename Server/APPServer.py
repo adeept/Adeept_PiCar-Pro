@@ -20,6 +20,8 @@ import json
 import app
 import Voltage
 import Buzzer
+import subprocess
+
 
 Angular_deviation = -3
 Dv = -1 #Directional variable
@@ -427,9 +429,43 @@ async def recv_msg(websocket):
 async def main_logic(websocket, path):
     await recv_msg(websocket)
 
+def show_wlan0_ip():
+    try:
+        if OLED_connection:
+            result = subprocess.run(
+                "ifconfig wlan0 | grep 'inet ' | awk '{print $2}'",
+                shell=True,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                encoding='utf-8'
+            ) 
+            screen.screen_show(2, "IP:" + result.stdout.strip())
+    except Exception as e:
+        pass
+
+def show_network_mode():
+    try:
+        if OLED_connection:
+            result = subprocess.run(
+                "if iw dev wlan0 link | grep -q 'Connected'; then echo 'Station Mode'; else echo 'AP Mode'; fi",
+                shell=True,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                encoding='utf-8'
+            )
+            screen.screen_show(3, result.stdout.strip())
+    except Exception as e:
+        pass
+
 if __name__ == '__main__':
     switch.switchSetup()
     switch.set_all_switch_off()
+
+    show_wlan0_ip()
+    time.sleep(0.5)
+    show_network_mode()
 
     global flask_app
     flask_app = app.webapp()

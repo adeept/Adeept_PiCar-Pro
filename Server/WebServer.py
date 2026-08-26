@@ -2,9 +2,7 @@
 # File name   : WebServer.py
 # Website     : www.Adeept.com
 # Author      : Adeept
-# Date        : 2025/03/11
 import time
-import threading
 import Move as move
 import os
 import Info as info
@@ -12,10 +10,9 @@ import RPIservo
 import Functions as functions
 import RobotLight as robotLight
 import Switch as switch
-import socket
 import asyncio
-import websockets
-import Voice_Command
+from websockets.asyncio.server import serve
+import VoiceIdentify
 import json
 import app
 import Voltage
@@ -45,8 +42,6 @@ scGear = RPIservo.ServoCtrl()
 scGear.moveInit()
 scGear.start()
 
-modeSelect = 'PT'
-
 init_pwm0 = scGear.initPos[0]
 init_pwm1 = scGear.initPos[1]
 init_pwm2 = scGear.initPos[2]
@@ -56,11 +51,6 @@ init_pwm4 = scGear.initPos[4]
 fuc = functions.Functions()
 fuc.setup()
 fuc.start()
-
-ncnn = Voice_Command.Sherpa_ncnn()
-ncnn.start()
-SR = Voice_Command.Speech()
-SR.start()
 
 batteryMonitor = Voltage.BatteryLevelMonitor()
 batteryMonitor.start()
@@ -76,35 +66,19 @@ def servoPosInit():
     scGear.initConfig(3,init_pwm3,1)
     scGear.initConfig(4,init_pwm4,1)
 
-
-def replace_num(initial,new_num):   #Call this function to replace data in '.txt' file
-    global r
-    newline=""
-    str_num=str(new_num)
-    with open(thisPath+"/RPIservo.py","r") as f:
-        for line in f.readlines():
-            if(line.find(initial) == 0):
-                line = initial+"%s" %(str_num+"\n")
-            newline += line
-    with open(thisPath+"/RPIservo.py","w") as f:
-        f.writelines(newline)
-
-
 def functionSelect(command_input, response):
     if 'scan' == command_input:
         if OLED_connection:
             screen.screen_show(5,'SCANNING')
-        if modeSelect == 'PT':
-            radar_send = fuc.radarScan()
-            response['title'] = 'scanResult'
-            response['data'] = radar_send
-            time.sleep(0.3)
+        radar_send = fuc.radarScan()
+        response['title'] = 'scanResult'
+        response['data'] = radar_send
+        time.sleep(0.3)
 
     elif 'findColor' == command_input:
         if OLED_connection:
             screen.screen_show(5,'FindColor')
-        if modeSelect == 'PT':
-            flask_app.modeselect('findColor')
+        flask_app.modeselect('findColor')
 
     elif 'motionGet' == command_input:
         if OLED_connection:
@@ -132,10 +106,8 @@ def functionSelect(command_input, response):
     elif 'automatic' == command_input:
         if OLED_connection:
             screen.screen_show(5,'Automatic')
-        if modeSelect == 'PT':
-            fuc.automatic()
-        else:
-            fuc.pause()
+        fuc.automatic()
+
 
     elif 'trackLine' == command_input:
         functions.last_status = None
@@ -164,25 +136,21 @@ def functionSelect(command_input, response):
         if OLED_connection:
             screen.screen_show(5,'POLICE')
         ws2812.police()
-        pass
 
     elif 'policeOff' == command_input:
         if OLED_connection:
             screen.screen_show(5,'FUNCTION OFF')
         ws2812.breath(75,85,90)
-        pass
     
     elif 'speech' == command_input:
         if OLED_connection:
             screen.screen_show(5,'SPEECH')
-        SR.speech()
-        pass
+        speech.speech()
 
     elif 'speechOff' == command_input:
         if OLED_connection:
             screen.screen_show(5,'FUNCTION OFF')
-        SR.pause()
-        pass
+        speech.pause()
     
     elif 'keepDistance' == command_input:
         functions.last_status = 25
@@ -291,6 +259,39 @@ def robotCtrl(command_input, response):
         scGear.moveServoInit([2])
         scGear.moveServoInit([3])
 
+def robotCtrl_speech(command_input, response):
+    if 'stop' in command_input:
+        scGear.stopWiggle()
+    elif 'lookleft' == command_input:
+        scGear.singleServo(1, 1, 7)
+
+    elif 'lookright' == command_input:
+        scGear.singleServo(1,-1, 7)
+
+    elif 'armup' == command_input:
+        scGear.singleServo(2, -1, 7)
+
+    elif 'armdown' == command_input:
+        scGear.singleServo(2, 1, 7)
+
+    elif 'handup' == command_input:
+        scGear.singleServo(3, 1, 7)
+
+    elif 'handdown' == command_input:
+        scGear.singleServo(3, -1, 7)
+
+    elif 'grab' == command_input:
+        scGear.singleServo(4, -1, 7)
+
+    elif 'loose' == command_input:
+        scGear.singleServo(4, 1, 7)
+        
+    elif 'home' == command_input:
+        scGear.moveServoInit([0])
+        scGear.moveServoInit([1])
+        scGear.moveServoInit([2])
+        scGear.moveServoInit([3])
+
 def configPWM(command_input, response):
     global init_pwm0, init_pwm1, init_pwm2, init_pwm3, init_pwm4
 
@@ -360,7 +361,7 @@ async def check_permit(websocket):
             await websocket.send(response_str)
 
 async def recv_msg(websocket):
-    global speed_set, modeSelect
+    global speed_set
     move.setup()
 
     while True: 
@@ -400,22 +401,6 @@ async def recv_msg(websocket):
                 except:
                     pass
 
-            elif 'AR' == data:
-                modeSelect = 'AR'
-                screen.screen_show(4, 'ARM MODE ON')
-                try:
-                    fpv.changeMode('ARM MODE ON')
-                except:
-                    pass
-
-            elif 'PT' == data:
-                modeSelect = 'PT'
-                screen.screen_show(4, 'PT MODE ON')
-                try:
-                    fpv.changeMode('PT MODE ON')
-                except:
-                    pass
-
             #CVFL
             elif 'CVFL' == data:
                 flask_app.modeselect('findlineCV')
@@ -436,9 +421,6 @@ async def recv_msg(websocket):
                 err = int(data.split()[1])
                 flask_app.camera.errorSet(err)
 
-            elif 'defEC' in data:#Z
-                fpv.defaultExpCom()
-
         elif(isinstance(data,dict)):
             if data['title'] == "findColorSet":
                 color = data['data']
@@ -450,7 +432,7 @@ async def recv_msg(websocket):
         response = json.dumps(response)
         await websocket.send(response)
 
-async def main_logic(websocket, path):
+async def main_logic(websocket):
     await check_permit(websocket)
     await recv_msg(websocket)
 
@@ -484,19 +466,23 @@ def show_network_mode():
     except Exception as e:
         pass
 
+async def start_server():
+    async with serve(main_logic, '0.0.0.0', 8888):
+        await asyncio.Future()  # run forever
+
 if __name__ == '__main__':
-    switch.switchSetup()
-    switch.set_all_switch_off()
-
-    show_wlan0_ip()
-    time.sleep(0.5)
-    show_network_mode()
-
-    global flask_app
-    flask_app = app.webapp()
-    flask_app.startthread()
-    ws2812 = robotLight.Adeept_SPI_LedPixel(16, 255)
+    global flask_app, speech
     try:
+        switch.switchSetup()
+        switch.set_all_switch_off()
+
+        show_wlan0_ip()
+        time.sleep(0.5)
+        show_network_mode()
+
+        flask_app = app.webapp()
+        flask_app.startthread()
+        ws2812 = robotLight.Adeept_SPI_LedPixel(16, 255)
         if ws2812.check_spi_state() != 0:
             ws2812.start()
             ws2812.breath(70,70,255)
@@ -504,27 +490,14 @@ if __name__ == '__main__':
         ws2812.led_close()
         pass
 
-    while  1:
-        try:                  #Start server,waiting for client
-            start_server = websockets.serve(main_logic, '0.0.0.0', 8888)
-            asyncio.get_event_loop().run_until_complete(start_server)
-            print('waiting for connection...')
-            # print('...connected from :', addr)
-            break
-        except Exception as e:
-            print(e)
-            ws2812.set_all_led_color_data(0,0,0)
-            ws2812.show()
-
-        try:
-            ws2812.set_all_led_color_data(0,80,255)
-            ws2812.show()
-        except:
-            pass
     try:
-        asyncio.get_event_loop().run_forever()
+        speech = VoiceIdentify.Speech(control_callback = robotCtrl_speech)
+        speech.daemon = True
+        speech.start()
+    except Exception as e:
+        pass
+
+    try:
+        asyncio.run(start_server())
     except Exception as e:
         print(e)
-        ws2812.set_all_led_color_data(0,0,0)
-        ws2812.show()
-        move.destroy()

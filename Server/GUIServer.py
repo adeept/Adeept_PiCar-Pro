@@ -17,7 +17,7 @@ import Switch as switch
 import socket
 import ast
 import FPV
-import Voice_Command
+import VoiceIdentify
 import json
 import subprocess
 
@@ -59,8 +59,6 @@ H_sc.start()
 G_sc = RPIservo.ServoCtrl()
 G_sc.start()
 
-modeSelect = 'PT'
-
 init_pwm = []
 for i in range(8):
     init_pwm.append(scGear.initPos[i])
@@ -73,10 +71,6 @@ init_pwm4 = scGear.initPos[4]
 fuc = functions.Functions()
 fuc.setup()
 fuc.start()
-ncnn = Voice_Command.Sherpa_ncnn()
-ncnn.start()
-SR = Voice_Command.Speech()
-SR.start()
  
 curpath = os.path.realpath(__file__)
 thisPath = "/" + os.path.dirname(curpath)
@@ -113,14 +107,13 @@ def functionSelect(command_input, response):
     if 'scan' == command_input:
         if OLED_connection:
             screen.screen_show(5,'SCANNING')
-        if modeSelect == 'PT':
-            radar_send = fuc.radarScan()
-            radar_array = []
-            for i in range(len(radar_send)):
-               radar_array.append(radar_send[i][0])
-            response['title'] = 'scanResult'
-            response['data'] = radar_array
-            time.sleep(0.3)
+        radar_send = fuc.radarScan()
+        radar_array = []
+        for i in range(len(radar_send)):
+            radar_array.append(radar_send[i][0])
+        response['title'] = 'scanResult'
+        response['data'] = radar_array
+        time.sleep(0.3)
 
     elif 'findColor' == command_input:
         if OLED_connection:
@@ -160,10 +153,7 @@ def functionSelect(command_input, response):
     elif 'automatic' == command_input:
         if OLED_connection:
             screen.screen_show(5,'Automatic')
-        if modeSelect == 'PT':
-            fuc.automatic()
-        else:
-            fuc.pause() 
+        fuc.automatic()
 
     elif 'automaticOff' == command_input:
         if OLED_connection:
@@ -184,13 +174,13 @@ def functionSelect(command_input, response):
     elif 'speech' == command_input:
         if OLED_connection:
             screen.screen_show(5,'Speed')
-        SR.speech()
+        speech.speech()
         pass
 
     elif 'speechOff' == command_input:
         if OLED_connection:
             screen.screen_show(5,'FUNCTION OFF')
-        SR.pause()
+        speech.pause()
         pass
     
     elif 'keepDistance' == command_input:
@@ -307,6 +297,39 @@ def robotCtrl(command_input):
         H_sc.moveServoInit([3])
         G_sc.moveServoInit([4])
 
+def robotCtrl_speech(command_input, response):
+    if 'stop' in command_input:
+        scGear.stopWiggle()
+    elif 'lookleft' == command_input:
+        P_sc.singleServo(1, 1, 7)
+
+    elif 'lookright' == command_input:
+        P_sc.singleServo(1,-1, 7)
+
+    elif 'armup' == command_input:
+        T_sc.singleServo(2, -1, 7)
+
+    elif 'armdown' == command_input:
+        T_sc.singleServo(2, 1, 7)
+
+    elif 'handup' == command_input:
+        H_sc.singleServo(3, 1, 7)
+
+    elif 'handdown' == command_input:
+        H_sc.singleServo(3, -1, 7)
+
+    elif 'grab' == command_input:
+        G_sc.singleServo(4, -1, 7)
+
+    elif 'loose' == command_input:
+        G_sc.singleServo(4, 1, 7)
+        
+    elif 'home' == command_input:
+        scGear.moveServoInit([0])
+        P_sc.moveServoInit([1])
+        T_sc.moveServoInit([2])
+        H_sc.moveServoInit([3])
+
 
 def configPWM(command_input):
     global init_pwm0, init_pwm1, init_pwm2, init_pwm3, init_pwm4
@@ -363,7 +386,7 @@ def configPWM(command_input):
             scGear.moveAngle(i, 0)
 
 def recv_msg(tcpCliSock):
-    global speed_set, modeSelect
+    global speed_set
     move.setup()
 
     while True: 
@@ -398,22 +421,6 @@ def recv_msg(tcpCliSock):
                 try:
                     set_B=data.split()
                     speed_set = int(set_B[1])
-                except:
-                    pass
-
-            elif 'AR' == data:
-                modeSelect = 'AR'
-                screen.screen_show(4, 'ARM MODE ON')
-                try:
-                    fpv.changeMode('ARM MODE ON')
-                except:
-                    pass
-
-            elif 'PT' == data:
-                modeSelect = 'PT'
-                screen.screen_show(4, 'PT MODE ON')
-                try:
-                    fpv.changeMode('PT MODE ON')
                 except:
                     pass
 
@@ -500,13 +507,14 @@ def show_network_mode():
         pass
 
 if __name__ == '__main__':
-    switch.switchSetup()
-    switch.set_all_switch_off()                                  
-    show_wlan0_ip()
-    time.sleep(0.5)
-    show_network_mode()
-    ws2812=robotLight.Adeept_SPI_LedPixel(16, 255)
+    global speech
     try:
+        switch.switchSetup()
+        switch.set_all_switch_off()                                  
+        show_wlan0_ip()
+        time.sleep(0.5)
+        show_network_mode()
+        ws2812=robotLight.Adeept_SPI_LedPixel(16, 255)
         if ws2812.check_spi_state() != 0:
             ws2812.start()
             ws2812.breath(70,70,255)                       # Set the brightness of lights.
@@ -514,11 +522,17 @@ if __name__ == '__main__':
         ws2812.led_close()
         pass
 
+    try:
+        speech = VoiceIdentify.Speech(control_callback = robotCtrl_speech)
+        speech.daemon = True
+        speech.start()
+    except Exception as e:
+        pass
+
     HOST = ''
     PORT = 10223                              #Define port serial 
     BUFSIZ = 1024                             #Define buffer size
     ADDR = (HOST, PORT)
-
    
     try:                  #Start server,waiting for client
         tcpSerSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -529,17 +543,10 @@ if __name__ == '__main__':
         tcpCliSock, addr = tcpSerSock.accept()
         print("Connected to the client :" + str(addr))
         fps_threading=threading.Thread(target=FPV_thread)         #Define a thread for FPV and OpenCV
-        fps_threading.setDaemon(True)                             #'True' means it is a front thread,it would close when the mainloop() closes
+        fps_threading.daemon = True                         #'True' means it is a front thread,it would close when the mainloop() closes
         fps_threading.start()   
         recv_msg(tcpCliSock)  
     except Exception as e:
         print(e)
-        ws2812.set_all_led_color_data(0,0,0)
-        ws2812.show()
 
-    try:
-        ws2812.set_all_led_color_data(0,0,0)
-        ws2812.show()
-    except:
-        pass
 

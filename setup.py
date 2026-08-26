@@ -77,14 +77,9 @@ def check_systemctl_service(service_name):
 
 commands_apt = [
 "sudo apt-get update",
-"sudo apt-get purge -y wolfram-engine",
-"sudo apt-get purge -y libreoffice*",
-"sudo apt-get -y clean",
-"sudo apt-get -y autoremove",
 "sudo apt-get install -y i2c-tools",
 "sudo apt-get install -y python3-smbus",
 "sudo apt-get install python3-gpiozero python3-pigpio",
-"sudo apt-get install -y python3-pyqt5 python3-opengl",
 "sudo apt-get install -y python3-picamera2",
 "sudo apt-get install -y python3-opencv",
 "sudo apt-get install -y opencv-data",
@@ -99,26 +94,10 @@ for x in range(3):
     if mark_apt == 0:
         break
 
-commands_pip_1 = [
-"sudo pip3 install adafruit-circuitpython-motor",
-"sudo pip3 install adafruit-circuitpython-pca9685",
-"sudo -H pip3 install --upgrade luma.oled",
-"sudo pip3 install mpu6050-raspberrypi",
-"sudo pip3 install spidev",
-"sudo pip3 install adafruit-circuitpython-busdevice adafruit-circuitpython-ssd1306",
-"sudo pip3 install pillow",
-"sudo pip3 install flask",
-"sudo pip3 install flask_cors",
-"sudo pip3 install numpy",
-"sudo pip3 install pyzmq",
-"sudo pip3 install imutils zmq pybase64 psutil",
-"sudo pip3 install websockets==13.0",
-"sudo pip3 install adafruit-circuitpython-ads7830"
-]
-commands_pip_2 = [
+commands_pip3 = [
 "sudo pip3 install adafruit-circuitpython-motor --break-system-packages",
 "sudo pip3 install adafruit-circuitpython-pca9685 --break-system-packages",
-"sudo -H pip3 install --upgrade luma.oled --break-system-packages",
+"sudo pip3 install luma.oled --break-system-packages",
 "sudo pip3 install mpu6050-raspberrypi --break-system-packages",
 "sudo pip3 install spidev --break-system-packages",
 "sudo pip3 install adafruit-circuitpython-busdevice adafruit-circuitpython-ssd1306 --break-system-packages",
@@ -126,29 +105,19 @@ commands_pip_2 = [
 "sudo pip3 install flask --break-system-packages",
 "sudo pip3 install flask_cors --break-system-packages",
 "sudo pip3 install numpy --break-system-packages",
-"sudo pip3 install pyzmq --break-system-packages",
-"sudo pip3 install imutils zmq pybase64 psutil --break-system-packages",
-"sudo pip3 install websockets==13.0 --break-system-packages",
-"sudo pip3 install adafruit-circuitpython-ads7830 --break-system-packages"
+"sudo pip3 install imutils pyzmq pybase64 psutil --break-system-packages",
+"sudo pip3 install websockets --break-system-packages",
+"sudo pip3 install adafruit-circuitpython-ads7830 --break-system-packages",
+"sudo pip3 install sherpa-onnx sherpa-onnx-bin --break-system-packages"
 ]
 mark_pip = 0
-OS_version = check_raspbain_version()
-if OS_version <= 11:
-    for x in range(3):
-        for command in commands_pip_1:
-            if os.system(command) != 0:
-                print("Error running installation step pip")
-                mark_pip = 1
-        if mark_pip == 0:
-            break
-else:
-    for x in range(3):
-        for command in commands_pip_2:
-            if os.system(command) != 0:
-                print("Error running installation step pip")
-                mark_pip = 1
-        if mark_pip == 0:
-            break
+for x in range(3):
+    for command in commands_pip3:
+        if os.system(command) != 0:
+            print("Error running installation step pip")
+            mark_pip = 1
+    if mark_pip == 0:
+        break
 
 
 wifi_service_name="wifi-hotspot-manager.service"

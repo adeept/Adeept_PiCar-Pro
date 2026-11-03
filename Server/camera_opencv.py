@@ -492,60 +492,82 @@ class Camera(BaseCamera):
     @staticmethod
     def set_video_source(source):
         Camera.video_source = source
+            
 
-
-# _______________________________________________________
     @staticmethod
     def frames():
-        global ImgIsNone,hflip,vflip
-        picam2 = Picamera2() 
-        
-        preview_config = picam2.preview_configuration
-        preview_config.size = (640, 480)
-        preview_config.format = 'RGB888'   # 'XRGB8888', 'XBGR8888', 'RGB888', 'BGR888', 'YUV420'
-        preview_config.transform = libcamera.Transform(hflip=hflip, vflip=vflip)
-        preview_config.colour_space = libcamera.ColorSpace.Sycc()
-        preview_config.buffer_count = 4
-        preview_config.queue = True
-        if not picam2.is_open:
-            raise RuntimeError('Could not start camera.')
+        global ImgIsNone, hflip, vflip
 
-        try:
-            picam2.start()
-        except Exception as e:
-            print(f"\033[38;5;1mError:\033[0m\n{e}")
-            print("\nPlease check whether the camera is connected well")
+        source = Camera.video_source
+
+        # /dev/video0
+        if isinstance(source, str) and source.isdigit():
+            source = int(source)
+
+        cap = cv2.VideoCapture(source, cv2.CAP_V4L2)
+
+        if not cap.isOpened():
+            cap.release()
+            raise RuntimeError(f"Cannot open USB camera: {source}")
+
+        # USB camera configuration
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        print("USB camera started:", source)
+        print("Resolution:",
+            int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 
         cvt = CVThread()
         cvt.start()
 
-        while True:
-            start_time = time.time()
-            img = picam2.capture_array()
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        try:
+            while True:
+                start_time = time.time()
 
-            if img is None:
-                if ImgIsNone == 0:
-                    print("--------------------")
-                    print("\033[31merror: Unable to read camera data.\033[0m")
-                    print("\033[33mIt may be that the Legacy camera is not turned on or the camera is not connected correctly.\033[0m")
-                    print("Use the command: \033[34m'raspistill -t 1000 -o image.jpg'\033[0m to check whether the camera can be used correctly.")
-                    print("Press the keyboard keys \033[34m'Ctrl + C'\033[0m multiple times to exit the current program.")
-                    print("--------Ctrl+C quit-----------")
-                    ImgIsNone = 1
-                continue
-            if Camera.modeSelect == 'none':
-                cvt.pause()
-            else:
-                if cvt.CVThreading:
-                    pass
+                ret, img = cap.read()
+
+                if not ret or img is None:
+                    if ImgIsNone == 0:
+                        print("Error: Unable to read USB camera.")
+                        ImgIsNone = 1
+                    time.sleep(0.05)
+                    continue
+
+                ImgIsNone = 0
+
+                # Apply image flip
+                if hflip or vflip:
+                    img = cv2.flip(
+                        img,
+                        -1 if hflip and vflip else
+                        1 if hflip else 0
+                    )
+
+                # OpenCV USB camera already outputs BGR
+                if Camera.modeSelect == 'none':
+                    cvt.pause()
                 else:
-                    try:
-                        cvt.mode(Camera.modeSelect, img)
-                        cvt.resume()
-                        img = cvt.elementDraw(img)
-                    except:
-                        pass
-            if cv2.imencode('.jpg', img)[0]:
-                yield cv2.imencode('.jpg', img)[1].tobytes()
-            
+                    if not cvt.CVThreading:
+                        try:
+                            cvt.mode(Camera.modeSelect, img)
+                            img = cvt.elementDraw(img)
+                        except Exception as e:
+                            print("CV processing error:", e)
+
+                # Encode JPEG once
+                ret, jpeg = cv2.imencode(
+                    '.jpg',
+                    img,
+                    [cv2.IMWRITE_JPEG_QUALITY, 80]
+                )
+
+                if ret:
+                    yield jpeg.tobytes()
+
+        finally:
+            cap.release()
+            print("USB camera released.")

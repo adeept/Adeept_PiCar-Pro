@@ -36,14 +36,15 @@ def run_command(cmd=""):
     return status, result
 
 def check_rpi_model():
-    _, result = run_command("cat /proc/device-tree/model |awk '{print $3}'")
+    _, result = run_command("cat /sys/firmware/devicetree/base/model | awk '{print $3}'")
     result = result.strip()
-    if result == '3':
-        return int(3)
-    elif result == '4':
-        return int(4)
-    else:
-        return None
+    if result == "3":
+        return 3
+    elif result == "4":
+        return 4
+    elif result == "5":
+        return 5
+    return None
 
 def check_raspbain_version():
     _, result = run_command("cat /etc/debian_version|awk -F. '{print $1}'")
@@ -95,7 +96,7 @@ for x in range(3):
         break
 
 commands_pip3 = [
-"sudo pip3 install Adafruit-Blinka-Raspberry-Pi-PWM rpi_ws281x --break-system-packages",
+"sudo pip3 install Adafruit-Blinka-Raspberry-Pi-PWM --break-system-packages",
 "sudo pip3 install adafruit-circuitpython-motor --break-system-packages",
 "sudo pip3 install adafruit-circuitpython-pca9685 --break-system-packages",
 "sudo pip3 install luma.oled --break-system-packages",
@@ -111,6 +112,7 @@ commands_pip3 = [
 "sudo pip3 install adafruit-circuitpython-ads7830 --break-system-packages",
 "sudo pip3 install sherpa-onnx sherpa-onnx-bin --break-system-packages"
 ]
+
 mark_pip = 0
 for x in range(3):
     for command in commands_pip3:
@@ -120,6 +122,10 @@ for x in range(3):
     if mark_pip == 0:
         break
 
+if check_rpi_model() == 5:
+    print("Raspberry Pi 5 detected, installing Adafruit-Blinka-Raspberry-Pi5-Neopixel library...")
+    status, result = run_command("sudo pip3 install Adafruit-Blinka-Raspberry-Pi5-Neopixel --break-system-packages")
+    print(result)
 
 wifi_service_name="wifi-hotspot-manager.service"
 if not check_systemctl_service(wifi_service_name):

@@ -1,0 +1,20 @@
+product:
+  name: Adeept PiCar-Pro
+  code: ADR019-V2.0
+
+repositories:
+  - name: Robot HAT Examples
+    url: https://github.com/adeept/Adeept_Robot_HAT-V3.git
+    branch: robot_examples
+    destination: Examples
+
+  - name: Adeept_RaspberryPi_Setup
+    url: https://github.com/adeept/Adeept_RaspberryPi_Setup.git
+    branch: main
+    destination: .
+
+install:
+  dependencies: requirements.yml
+  wifi_service: true
+  robot_service: true
+  reboot: true

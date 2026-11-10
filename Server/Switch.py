@@ -41,10 +41,10 @@ def gpio_kernel_busy(gpio):
 
 def create_led(gpio):
     if gpio_kernel_busy(gpio):
-        print(f"GPIO{gpio} is occupied by kernel/SPI, LED disabled")
         return None
     try:
         led = LED(gpio)
+        print(f"GPIO{gpio} LED init OK ")
         return led
     except Exception as e:
         pass
@@ -52,8 +52,12 @@ def create_led(gpio):
 def switchSetup():
     global led1, led2, led3
     led1 = create_led(9)
+    if led1 is None:
+        led1 = create_led(16)
     led2 = create_led(25)
     led3 = create_led(11)
+    if led3 is None:
+        led3 = create_led(26)
 
 def switch(port, status):
     if port == 1:

@@ -53,7 +53,7 @@ def load_config():
 
 def get_user_info():
     try:
-        username = pwd.getpwuid(os.getuid()).pw_name
+        username = os.environ.get("SUDO_USER") or pwd.getpwuid(os.getuid()).pw_name
         user = pwd.getpwnam(username)
         return username, user.pw_dir
     except KeyError:
@@ -142,8 +142,8 @@ def install_requirements(config):
         privileged_command(["apt-get", "update"])
         privileged_command(["apt-get", "install", "-y"] + apt_packages)
 
-    if check_rpi_model() == 5:
-        pip_packages += requirements.get("pip_rpi5", [])
+    # if check_rpi_model() == 5:
+    #     pip_packages += requirements.get("pip_rpi5", [])
 
     if pip_packages:
         privileged_command([sys.executable, "-m", "pip", "install", "--break-system-packages"] + pip_packages)

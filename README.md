@@ -24,8 +24,8 @@ The server supports two profiles, configured in `Server/runtime.yml`:
 
 | Mode | Description |
 |------|-------------|
-| `app` | Mobile app control; |
-| `web` | Browser control; |
+| `app` | Mobile app control |
+| `web` | Browser control |
 
 Set the default mode in `Server/runtime.yml`:
 

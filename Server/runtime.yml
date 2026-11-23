@@ -191,7 +191,7 @@ jog:
 
 speech:
   device: plughw:2,0
-  model: Server/Vision_Voice_Examples/Speech_Recognition/Mode/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20
+  model: Server/Voice/Mode/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20
   tokens: tokens.txt
   encoder: encoder-epoch-99-avg-1.onnx
   decoder: decoder-epoch-99-avg-1.onnx

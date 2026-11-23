@@ -1,0 +1,223 @@
+# Runtime configuration: server profiles, motor setup and speech model.
+server:
+  # app: mobile app profile, web: browser profile. CLI --mode overrides this.
+  mode: app
+  host: 0.0.0.0
+  port: 8888
+
+  vision:
+    enabled: true
+    camera: auto              # auto / usb / csi
+    width: 640
+    height: 480
+    fps: 30
+    web: true                 # start the camera stream on web_port
+    web_port: 5000
+
+  # Per-profile command tables are kept separate below; nothing is shared
+  # through defaults. dict commands are listed under each profile too.
+  defaults: {}
+
+  modes:
+    app:
+      auth:
+        enabled: false
+      speed_scale: 10          # app sends 0..10, Robot expects 0..100
+      steer_trim: -3            # camera/steering trim used while driving straight
+      line_pos_scale: 4.8       # app sends 0..100, camera line width is 480
+      commands:
+        # Stop / home
+        DTS: {action: halt, args: 0}
+        TS: {action: halt, args: 0}
+        DS: {action: stop, args: 0}
+        stop: {action: stop, args: 0}
+        home: {action: halt, args: 0}
+
+        # Drive
+        forward: {action: drive, direction: 1, speed: current, args: 1, trim: true}
+        backward: {action: drive, direction: -1, speed: current, args: 1, trim: true}
+        left: {action: turn, direction: -1, angle: 30, speed: current, indicator: left, args: 1}
+        right: {action: turn, direction: 1, angle: 30, speed: current, indicator: right, args: 1}
+        wsB: {action: speed, args: 1}
+
+        # Status / buzzer
+        get_info: {action: info, args: 0, battery: true}
+        Buzzer_Music: {action: buzzer, command: play, args: 0}
+        Buzzer_Music_Off: {action: buzzer, command: stop, args: 0}
+
+        # Auto modes
+        automatic: {action: mode, method: automatic, args: 0}
+        automaticOff: {action: stop, args: 0}
+        trackLine: {action: mode, method: track_line, args: 0}
+        trackLineOff: {action: stop, args: 0}
+        keepDistance: {action: mode, method: keep_distance, args: 0}
+        keepDistanceOff: {action: stop, args: 0}
+        scan: {action: scan, args: 0}
+        speech: {action: mode, method: speech, args: 0}
+        speechOff: {action: stop, args: 0}
+
+        # Vision
+        findColor: {action: mode, method: vision_color, args: 0}
+        motionGet: {action: mode, method: vision_motion, args: 0}
+        CVFL: {action: mode, method: vision_line, args: 0}
+        stopCV: {action: vision_stop, args: 0}
+        CVFLSP: {action: line_threshold, args: 1}
+        CVFLL1: {action: line_pos, index: 1, args: 1}
+        CVFLL2: {action: line_pos, index: 2, args: 1}
+        CVFLColorSet: {action: color_index, args: 1}
+
+        # Lights
+        police: {action: light, effect: police, args: 0}
+        policeOff: {action: light, effect: breath, color: [75, 85, 90], args: 0}
+
+        # Arm jog (press and hold)
+        lookleft: {action: jog, channel: 1, direction: 1, args: 0}
+        lookright: {action: jog, channel: 1, direction: -1, args: 0}
+        armup: {action: jog, channel: 2, direction: 1, args: 0}
+        armdown: {action: jog, channel: 2, direction: -1, args: 0}
+        handup: {action: jog, channel: 3, direction: 1, args: 0}
+        handdown: {action: jog, channel: 3, direction: -1, args: 0}
+        grab: {action: jog, channel: 4, direction: 1, args: 0}
+        loose: {action: jog, channel: 4, direction: -1, args: 0}
+        armstop: {action: jog_stop, args: 0}
+        hastop: {action: jog_stop, args: 0}
+        handstop: {action: jog_stop, args: 0}
+        lrstop: {action: jog_stop, args: 0}
+        glstop: {action: jog_stop, args: 0}
+
+        # Auxiliary switches
+        Switch_1_on: {action: switch, channel: 1, status: 1, args: 0}
+        Switch_1_off: {action: switch, channel: 1, status: 0, args: 0}
+        Switch_2_on: {action: switch, channel: 2, status: 1, args: 0}
+        Switch_2_off: {action: switch, channel: 2, status: 0, args: 0}
+        Switch_3_on: {action: switch, channel: 3, status: 1, args: 0}
+        Switch_3_off: {action: switch, channel: 3, status: 0, args: 0}
+
+      dict:
+        findColorSet: {action: color}
+        lightMode: {action: light}
+
+    web:
+      auth:
+        enabled: true
+        username: admin
+        password: "123456"
+      speed_scale: 1
+      steer_trim: 0
+      line_pos_scale: 1
+      commands:
+        # Stop / home
+        DTS: {action: halt, args: 0}
+        TS: {action: halt, args: 0}
+        DS: {action: stop, args: 0}
+        stop: {action: stop, args: 0}
+        home: {action: halt, args: 0}
+
+        # Drive
+        forward: {action: drive, direction: 1, speed: current, args: 0}
+        backward: {action: drive, direction: -1, speed: current, args: 0}
+        left: {action: turn, direction: -1, angle: 30, speed: 30, indicator: left, args: 0}
+        right: {action: turn, direction: 1, angle: 30, speed: 30, indicator: right, args: 0}
+        wsB: {action: speed, args: 1}
+
+        # Status
+        get_info: {action: info, args: 0, battery: false}
+
+        # Auto modes
+        automatic: {action: mode, method: automatic, args: 0}
+        automaticOff: {action: stop, args: 0}
+        trackLine: {action: mode, method: track_line, args: 0}
+        trackLineOff: {action: stop, args: 0}
+        keepDistance: {action: mode, method: keep_distance, args: 0}
+        keepDistanceOff: {action: stop, args: 0}
+        scan: {action: scan, args: 0}
+        speech: {action: mode, method: speech, args: 0}
+        speechOff: {action: stop, args: 0}
+
+        # Vision
+        findColor: {action: mode, method: vision_color, args: 0}
+        motionGet: {action: mode, method: vision_motion, args: 0}
+        CVFL: {action: mode, method: vision_line, args: 0}
+        stopCV: {action: vision_stop, args: 0}
+        CVFLSP: {action: line_threshold, args: 1}
+        CVFLL1: {action: line_pos, index: 1, args: 1}
+        CVFLL2: {action: line_pos, index: 2, args: 1}
+        CVFLColorSet: {action: color_index, args: 1}
+
+        # Lights
+        police: {action: light, effect: police, args: 0}
+        policeOff: {action: light, effect: breath, color: [75, 85, 90], args: 0}
+
+        # Arm jog (press and hold)
+        lookleft: {action: jog, channel: 1, direction: 1, args: 0}
+        lookright: {action: jog, channel: 1, direction: -1, args: 0}
+        armup: {action: jog, channel: 2, direction: 1, args: 0}
+        armdown: {action: jog, channel: 2, direction: -1, args: 0}
+        handup: {action: jog, channel: 3, direction: 1, args: 0}
+        handdown: {action: jog, channel: 3, direction: -1, args: 0}
+        grab: {action: jog, channel: 4, direction: 1, args: 0}
+        loose: {action: jog, channel: 4, direction: -1, args: 0}
+        armstop: {action: jog_stop, args: 0}
+        hastop: {action: jog_stop, args: 0}
+        handstop: {action: jog_stop, args: 0}
+        lrstop: {action: jog_stop, args: 0}
+        glstop: {action: jog_stop, args: 0}
+
+        # Auxiliary switches
+        Switch_1_on: {action: switch, channel: 1, status: 1, args: 0}
+        Switch_1_off: {action: switch, channel: 1, status: 0, args: 0}
+        Switch_2_on: {action: switch, channel: 2, status: 1, args: 0}
+        Switch_2_off: {action: switch, channel: 2, status: 0, args: 0}
+        Switch_3_on: {action: switch, channel: 3, status: 1, args: 0}
+        Switch_3_off: {action: switch, channel: 3, status: 0, args: 0}
+
+      dict:
+        findColorSet: {action: color}
+        lightMode: {action: light}
+
+motor:
+  # Rear drive motors to enable. Use [M1, M2] for the standard two-wheel drive.
+  enabled: [M1, M2]
+  # Set to 1 or -1 per motor. Flip it if a motor runs opposite to the command.
+  direction:
+    M1: -1
+    M2: -1
+
+jog:
+  # Press-and-hold arm servo tuning. step = degrees per move, period = seconds
+  # between steps. Smaller step = smoother; smaller period = faster.
+  step: 3.0
+  period: 0.05
+
+speech:
+  device: plughw:2,0
+  model: Server/Vision_Voice_Examples/Speech_Recognition/Mode/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20
+  tokens: tokens.txt
+  encoder: encoder-epoch-99-avg-1.onnx
+  decoder: decoder-epoch-99-avg-1.onnx
+  joiner: joiner-epoch-99-avg-1.onnx
+  commands:
+    停止: stop
+    STOP: stop
+    前进: forward
+    FORWARD: forward
+    后退: backward
+    BACKWARD: backward
+    向左转: left
+    "LOOK LEFT": left
+    向右转: right
+    "LOOK RIGHT": right
+    抬起大臂: armup
+    "ARM UP": armup
+    落下大臂: armdown
+    "ARM DOWN": armdown
+    抬起小臂: handup
+    "HAND UP": handup
+    落下小臂: handdown
+    "HAND DOWN": handdown
+    抓取: grab
+    GRAB: grab
+    松开: loose
+    LOOSE: loose
+    重置: home
+    RESET: home

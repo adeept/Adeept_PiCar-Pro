@@ -5,13 +5,18 @@ product:
 repositories:
   - name: Robot HAT Examples
     url: https://github.com/adeept/Adeept_Robot_HAT-V3.git
-    branch: robot_examples
-    destination: Examples
+    branch: main
+    destination: Robot_HAT_Examples
 
   - name: Adeept_RaspberryPi_Setup
     url: https://github.com/adeept/Adeept_RaspberryPi_Setup.git
     branch: main
     destination: .
+
+  - name: Adeept_RaspberryPi_Hardware_Vision
+    url: https://github.com/adeept/Adeept_RaspberryPi_Hardware_Vision.git
+    branch: main
+    destination: Server
 
 install:
   dependencies: requirements.yml

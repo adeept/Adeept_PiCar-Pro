@@ -2,12 +2,11 @@
 # coding=utf-8
 # File name: install.py
 # Author: Adeept
-
 import os
 import re
 import sys
-import pwd
 import shlex
+import fnmatch
 import shutil
 import tempfile
 import subprocess
@@ -20,6 +19,7 @@ WIFI_SERVICE = "wifi-hotspot-manager.service"
 ROBOT_SERVICE = "Adeept_Robot.service"
 
 PROTECTED_ROOT_ITEMS = {".git", "install.py", "product.yml", "README.md"}
+IGNORE_PATTERNS = ("README*", "install_libraries.py")
 
 def run_command(cmd, cwd=None):
     print("\n>>>", " ".join(map(str, cmd)), flush=True)
@@ -52,6 +52,7 @@ def load_config():
     return config
 
 def get_user_info():
+    import pwd
     try:
         username = os.environ.get("SUDO_USER") or pwd.getpwuid(os.getuid()).pw_name
         user = pwd.getpwnam(username)
@@ -83,13 +84,15 @@ def copy_repository(source, destination, is_root=False):
     for item in source.iterdir():
         if item.name == ".git" or (is_root and item.name in PROTECTED_ROOT_ITEMS):
             continue
+        if any(fnmatch.fnmatch(item.name, p) for p in IGNORE_PATTERNS):
+            continue
 
         target = destination / item.name
 
         if item.is_dir() and not item.is_symlink():
             shutil.copytree(
                 item, target, dirs_exist_ok=True,
-                ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", *IGNORE_PATTERNS)
             )
         elif item.is_symlink():
             if target.exists() or target.is_symlink():
@@ -107,6 +110,7 @@ def download_repository(repo):
     branch, destination = repo["branch"], resolve_path(repo["destination"])
 
     print(f"\n========== Downloading {name} ==========")
+    print(f"URL: {url}")
     print(f"Branch: {branch}")
     print(f"Destination: {destination}")
 
@@ -118,6 +122,26 @@ def download_repository(repo):
             url, str(temp_repo)
         ])
         copy_repository(temp_repo, destination, destination == ROOT_DIR)
+        print(f"{name} downloaded to {destination}")
+
+
+def download_repositories(config):
+    repositories = config.get("repositories") or []
+    if not repositories:
+        print("\nNo repositories configured, skipping code download.")
+        return
+
+    if not shutil.which("git"):
+        print("\ngit is missing, installing it first...")
+        privileged_command(["apt-get", "update"])
+        privileged_command(["apt-get", "install", "-y", "git"])
+
+    print("\nRepositories to download:")
+    for repo in repositories:
+        print(f"  - {repo['name']} ({repo['url']}) -> {repo['destination']}")
+
+    for repo in repositories:
+        download_repository(repo)
 
 
 def install_requirements(config):
@@ -193,7 +217,7 @@ WantedBy=multi-user.target
 
 def install_robot_service(user_home):
     startup_script = Path(user_home) / "startup.sh"
-    robot_server = ROOT_DIR / "Server" / "WebServer.py"
+    robot_server = ROOT_DIR / "Server" / "Server.py"
 
     if not startup_script.exists():
         startup_content = f"#!/bin/bash\nsleep 3\nsudo python3 {shlex.quote(str(robot_server))}\n"
@@ -245,8 +269,7 @@ def main():
     print(f"OS Bit: {check_os_bit()}")
     print("================================")
 
-    for repo in config.get("repositories", []):
-        download_repository(repo)
+    download_repositories(config)
 
     install_requirements(config)
 
@@ -262,7 +285,7 @@ def main():
 
     print("\nInstallation completed.")
     print("You can now power off the Raspberry Pi to install the camera and Robot HAT.")
-    print("After powering on, the robot program will run automatically. WebServer.py is the default auto‑start program. If you want to control the robot via your phone, please modify startup.sh.")
+    print("After powering on, the robot program will run automatically. Server.py is the default auto‑start program. Set server.mode in Server/runtime.yml to app or web, or pass --mode on startup.sh.")
 
     if install_config.get("reboot", True):
         print("\nRestarting Raspberry Pi...")

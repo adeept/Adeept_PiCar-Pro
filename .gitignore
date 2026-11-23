@@ -1,0 +1,11 @@
+# Downloaded at install time by install.py (Adeept_RaspberryPi_Hardware_Vision)
+# These directories only exist on the device after installation, never in the repository.
+Server/Hardware/
+Server/Motion/
+Server/Vision/
+Server/Vision_Voice_Examples/
+Server/README.md
+
+# Python
+__pycache__/
+*.py[cod]

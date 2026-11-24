@@ -32,7 +32,7 @@ def _number(value, default=None):
 class ControlRouter:
     """Translate the configured command table into Robot calls."""
 
-    def __init__(self, robot, vision, profile, defaults=None):
+    def __init__(self, robot, vision, mode, profile, defaults=None):
         self.robot = robot
         self.vision = vision
         self.profile = profile
@@ -46,6 +46,7 @@ class ControlRouter:
         self.line_pos_scale = float(profile.get("line_pos_scale", 1))
         self._line_positions = [0.0, 0.0]
         self._music_thread = None
+        self.mode = mode
 
     def handle(self, raw):
         logger.info("incoming command: %s", raw)
@@ -190,7 +191,10 @@ class ControlRouter:
         if self.vision is None:
             raise RuntimeError("vision is not enabled")
         color = message.get("data") or args
-        self.vision.set_color_rgb(*[int(v) for v in color[:3]])
+        if self.mode == "app":
+            self.vision.set_color_rgb(*[int(v) for v in color[:3]])
+        else:
+            self.vision.set_color_hsv(*[int(v) for v in color[:3]])
         return None, ""
 
     def _action_color_index(self, spec, args, message):
@@ -306,8 +310,8 @@ def main(argv=None):
             logger.exception("vision start failed; vision commands will return errors")
             vision = None
 
-    robot = Robot(vision=vision)
-    router = ControlRouter(robot, vision, profile, server.get("defaults"))
+    robot = Robot(vision=vision, profile=mode)
+    router = ControlRouter(robot, vision, mode, profile, server.get("defaults"))
     try:
         asyncio.run(_serve(server.get("host", "0.0.0.0"), int(server.get("port", 8888)), router, profile.get("auth") or {}))
     except KeyboardInterrupt:

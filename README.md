@@ -13,6 +13,7 @@ sudo git clone https://github.com/adeept/Adeept_PiCar-Pro.git
 From the repository root on the Raspberry Pi, run the installer with `sudo`. It enables SPI/I2C, installs the required apt and Python packages, downloads the dependent repositories, and registers the auto-start services:
 
 ```bash
+cd ~/Adeept_PiCar-Pro
 sudo python3 install.py
 ```
 

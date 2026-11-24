@@ -36,8 +36,8 @@ server:
         # Drive
         forward: {action: drive, direction: 1, speed: current, args: 1, trim: true}
         backward: {action: drive, direction: -1, speed: current, args: 1, trim: true}
-        left: {action: turn, direction: -1, angle: 30, speed: current, indicator: left, args: 1}
-        right: {action: turn, direction: 1, angle: 30, speed: current, indicator: right, args: 1}
+        left: {action: turn, direction: -1, angle: 50, speed: current, indicator: left, args: 1}
+        right: {action: turn, direction: 1, angle: 40, speed: current, indicator: right, args: 1}
         wsB: {action: speed, args: 1}
 
         # Status / buzzer
@@ -73,12 +73,12 @@ server:
         # Arm jog (press and hold)
         lookleft: {action: jog, channel: 1, direction: 1, args: 0}
         lookright: {action: jog, channel: 1, direction: -1, args: 0}
-        armup: {action: jog, channel: 2, direction: 1, args: 0}
-        armdown: {action: jog, channel: 2, direction: -1, args: 0}
+        armup: {action: jog, channel: 2, direction: -1, args: 0}
+        armdown: {action: jog, channel: 2, direction: 1, args: 0}
         handup: {action: jog, channel: 3, direction: 1, args: 0}
         handdown: {action: jog, channel: 3, direction: -1, args: 0}
-        grab: {action: jog, channel: 4, direction: 1, args: 0}
-        loose: {action: jog, channel: 4, direction: -1, args: 0}
+        grab: {action: jog, channel: 4, direction: -1, args: 0}
+        loose: {action: jog, channel: 4, direction: 1, args: 0}
         armstop: {action: jog_stop, args: 0}
         hastop: {action: jog_stop, args: 0}
         handstop: {action: jog_stop, args: 0}
@@ -116,8 +116,8 @@ server:
         # Drive
         forward: {action: drive, direction: 1, speed: current, args: 0}
         backward: {action: drive, direction: -1, speed: current, args: 0}
-        left: {action: turn, direction: -1, angle: 30, speed: 30, indicator: left, args: 0}
-        right: {action: turn, direction: 1, angle: 30, speed: 30, indicator: right, args: 0}
+        left: {action: turn, direction: -1, angle: 50, speed: 30, indicator: left, args: 0}
+        right: {action: turn, direction: 1, angle: 40, speed: 30, indicator: right, args: 0}
         wsB: {action: speed, args: 1}
 
         # Status
@@ -151,12 +151,12 @@ server:
         # Arm jog (press and hold)
         lookleft: {action: jog, channel: 1, direction: 1, args: 0}
         lookright: {action: jog, channel: 1, direction: -1, args: 0}
-        armup: {action: jog, channel: 2, direction: 1, args: 0}
-        armdown: {action: jog, channel: 2, direction: -1, args: 0}
+        armup: {action: jog, channel: 2, direction: -1, args: 0}
+        armdown: {action: jog, channel: 2, direction: 1, args: 0}
         handup: {action: jog, channel: 3, direction: 1, args: 0}
         handdown: {action: jog, channel: 3, direction: -1, args: 0}
-        grab: {action: jog, channel: 4, direction: 1, args: 0}
-        loose: {action: jog, channel: 4, direction: -1, args: 0}
+        grab: {action: jog, channel: 4, direction: -1, args: 0}
+        loose: {action: jog, channel: 4, direction: 1, args: 0}
         armstop: {action: jog_stop, args: 0}
         hastop: {action: jog_stop, args: 0}
         handstop: {action: jog_stop, args: 0}
@@ -186,8 +186,8 @@ motor:
 jog:
   # Press-and-hold arm servo tuning. step = degrees per move, period = seconds
   # between steps. Smaller step = smoother; smaller period = faster.
-  step: 3.0
-  period: 0.05
+  step: 5.0
+  period: 0.1
 
 speech:
   device: plughw:2,0

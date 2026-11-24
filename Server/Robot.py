@@ -75,13 +75,13 @@ class Robot:
     # WS2812 startup breathing
     WS2812_BREATH = (0, 80, 255)
     # Obstacle avoidance
-    AVOID_SPEED, AVOID_SLOW_SPEED = 35, 20
-    AVOID_CLEAR_CM, AVOID_SLOW_CM = 60.0, 35.0
-    AVOID_TURN, AVOID_REVERSE_TICKS, AVOID_TURN_TICKS = 35.0, 4, 8
+    AVOID_SPEED, AVOID_SLOW_SPEED = 35, 30
+    AVOID_CLEAR_CM, AVOID_SLOW_CM = 70.0, 50.0
+    AVOID_TURN, AVOID_ANGLE = 40.0, 60.0
     # Keep_distance / follow
-    FOLLOW_SPEED, FOLLOW_MIN_CM, FOLLOW_MAX_CM, FOLLOW_DEADBAND = 25, 25.0, 40.0, 5.0
+    FOLLOW_SPEED, FOLLOW_MIN_CM, FOLLOW_MAX_CM, FOLLOW_DEADBAND = 30, 25.0, 40.0, 5.0
     # Line tracking
-    LINE_SPEED, LINE_TURN = 20, 28.0
+    LINE_SPEED, LINE_TURN = 20, 30
     # Background mode tick
     MODE_TICK = 0.15
 
@@ -96,7 +96,7 @@ class Robot:
     SPEECH_MAP = _SPEECH_CFG.get("commands") or {}
     # Voice-driven arm steps (ch1 pan, ch2 arm, ch3 hand, ch4 grip)
     VOICE_PAN_JOINT, VOICE_ARM_JOINT, VOICE_HAND_JOINT, VOICE_GRIP_JOINT = 1, 2, 3, 4
-    VOICE_STEP, VOICE_GRIP_STEP = 45.0, 45.0
+    VOICE_STEP, VOICE_GRIP_STEP = 60.0, 45.0
     
     # Vision tracking
     VISION_TICK, VISION_TIMEOUT = 0.1, 0.2
@@ -104,11 +104,9 @@ class Robot:
 
     # Radar scan (pan servo + ultrasonic)
     SCAN_CHANNEL = 1
-    SCAN_LIMIT = 90.0
     SCAN_STEP = 2.0
-    SCAN_SETTLE = 0.8
-    SCAN_POINT_DELAY = 0.02
-    SCAN_MAX_CM = 100.0
+    SCAN_POINT_DELAY = 0.1
+    SCAN_MAX_CM = 50.0
 
     # OLED status
     OLED_TITLE = "Adeept PiCar Pro V2"
@@ -121,8 +119,9 @@ class Robot:
     VISION_MODES = ("vision_line", "vision_color", "vision_motion")
     AUTO_MODES = ("avoid", "line", "follow") + VISION_MODES
 
-    def __init__(self, cal_path=None, vision=None):
+    def __init__(self, cal_path=None, vision=None, profile=None):
         # Runtime state
+        self._profile = str(profile or "").lower()
         self._lock = threading.RLock()
         self._oled_lock = threading.Lock()
         self._oled_lines = None
@@ -217,7 +216,9 @@ class Robot:
             self._network_at = now
         net, ip = self._network
         mode = self.MODE_LABELS.get(self._mode, self._mode)
-        lines = [self.OLED_TITLE, "NET: " + net, "IP: " + ip, "BAT: " + self._battery_text(), "", "MODE: " + mode]
+        profile = "Profile: " + (self._profile if self._profile else "-")
+        lines = [self.OLED_TITLE, profile, "Net: " + net, "IP: " + ip,
+                 "Bat:  " + self._battery_text(), "Mode: " + mode]
         if lines != self._oled_lines:
             with self._oled_lock:
                 try:
@@ -472,40 +473,30 @@ class Robot:
         self._start_mode("vision_motion", self._vision_motion_step, self.VISION_TICK, vision_mode="watchDog")
 
     def radar_scan(self):
-        """Pan the scan servo side to side and measure ultrasonic distance.
-
-        Returns a list of [distance_cm, heading_deg] for every in-range hit.
-        Heading 90 deg is straight ahead; 0/180 are the left/right extremes.
-        """
         self._ensure_open()
         self._stop_mode()
         servo = self._bank.joints[self.SCAN_CHANNEL]
-        half = min(self.SCAN_LIMIT, servo.neutral - servo.min_angle, servo.max_angle - servo.neutral)
+        lo, hi = servo.min_angle, servo.max_angle
         result = []
 
-        with self._lock:
-            self._center_all()
-            self._coast()
-        time.sleep(self.SCAN_SETTLE)
-
-        offset = half
-        while offset > -half:
-            offset -= self.SCAN_STEP
-            offset = max(-half, offset)
+        try:
+            angle = hi
+            while angle > lo:
+                angle = angle - self.SCAN_STEP
+                with self._lock:
+                    servo.jump(angle)
+                time.sleep(self.SCAN_POINT_DELAY)
+                try:
+                    dist = self._ultra.get_distance()
+                except Exception:
+                    dist = 0.0
+                if dist <= self.SCAN_MAX_CM:
+                    result.append([round(dist, 2), round(hi-angle, 1)])
+        finally:
             with self._lock:
-                self._bank.move_to(self.SCAN_CHANNEL, servo.to_absolute(offset))
-            time.sleep(self.SCAN_POINT_DELAY)
-            try:
-                dist = self._ultra.get_distance()
-            except Exception as exc:
-                dist = 0.0
-            if dist <= self.SCAN_MAX_CM:
-                heading = 90.0 + servo.direction * offset
-                result.append([round(dist, 2), round(heading, 1)])
-
-        with self._lock:
-            self._bank.move_to(self.SCAN_CHANNEL, servo.neutral)
+                servo.jump(servo.neutral)
         return result
+
 
     def _vision_result(self):
         seq, result = self._vision.wait_result(self._vision_seq, self.VISION_TIMEOUT)
@@ -538,13 +529,7 @@ class Robot:
             self._coast()
 
     def _vision_motion_step(self):
-        result = self._vision_result()
-        if result is None or not result.motion_detected or result.motion_rect is None:
-            self._coast()
-            return
-        x, _, w, _ = result.motion_rect
-        half = self._vision_width / 2.0
-        self._vision_drive((x + w / 2.0 - half) / half)
+        self._vision_result()
 
     def speech(self):
         self._start_mode("speech", self._speech_step, 0.0)
@@ -582,6 +567,7 @@ class Robot:
         text = self._recognizer.get_result(self._speech_stream)
         self._recognizer.reset(self._speech_stream)
         command = self.SPEECH_MAP.get((text or "").strip().upper())
+        logger.info("Voice command: %s -> %s", text, command)
         if command:
             self._voice_command(command)
 
@@ -595,11 +581,13 @@ class Robot:
             with self._lock:
                 self._set_lamps("off")
         elif command in ("left", "right"):
-            self._nudge_joint(self.VOICE_PAN_JOINT,
-                              -self.VOICE_STEP if command == "left" else self.VOICE_STEP)
+            self._nudge_joint(self.VOICE_PAN_JOINT, self.VOICE_STEP if command == "left" else -self.VOICE_STEP)
         elif command in ("armup", "armdown", "handup", "handdown"):
             joint = self.VOICE_ARM_JOINT if command.startswith("arm") else self.VOICE_HAND_JOINT
-            self._nudge_joint(joint, self.VOICE_STEP if command.endswith("up") else -self.VOICE_STEP)
+            if command.startswith("arm"):
+                self._nudge_joint(joint, -self.VOICE_STEP if command.endswith("up") else self.VOICE_STEP)
+            else:
+                self._nudge_joint(joint, self.VOICE_STEP if command.endswith("up") else -self.VOICE_STEP)
         elif command in ("grab", "loose"):
             self._nudge_joint(self.VOICE_GRIP_JOINT,
                               -self.VOICE_GRIP_STEP if command == "grab" else self.VOICE_GRIP_STEP)
@@ -611,9 +599,8 @@ class Robot:
 
     def _nudge_joint(self, channel, delta):
         joint = self._bank.joints[channel]
-        target = joint.angle if joint.target is None else joint.target
         with self._lock:
-            self._bank.move_to(channel, target + delta)
+            self._bank.move_to(channel, joint.neutral + delta)
 
     def _speech_close(self):
         proc, self._speech_proc = self._speech_proc, None
@@ -641,8 +628,7 @@ class Robot:
         self._avoid_phase = self._avoid_ticks = 0
         self._mode = mode
         self._mode_stop = threading.Event()
-        self._mode_thread = threading.Thread(target=self._mode_loop, args=(step, self._mode_stop, period),
-                                             name="robot-" + mode, daemon=True)
+        self._mode_thread = threading.Thread(target=self._mode_loop, args=(step, self._mode_stop, period), name="robot-" + mode, daemon=True)
         self._mode_thread.start()
         self._oled_status()
 
@@ -673,34 +659,35 @@ class Robot:
             stop.wait(self.MODE_TICK if period is None else period)
 
     def _avoid_step(self):
-        """Cruise, slow down near an obstacle, then back off and turn away."""
-        if self._avoid_phase == 1:
-            self._avoid_ticks += 1
-            if self._avoid_ticks >= self.AVOID_REVERSE_TICKS:
-                self._avoid_phase, self._avoid_ticks = 2, 0
-                self._drive_at(self.AVOID_SPEED, 1)
-            return
-        if self._avoid_phase == 2:
-            self._avoid_ticks += 1
-            if self._avoid_ticks >= self.AVOID_TURN_TICKS:
-                self._avoid_phase, self._avoid_ticks = 0, 0
-                self.steer(0.0, settle=False)
-            return
         dist = self._ultra.get_distance()
         if dist > self.AVOID_CLEAR_CM:
             self.steer(0.0, settle=False)
             self._drive_at(self.AVOID_SPEED, 1)
+            time.sleep(1)
         elif dist > self.AVOID_SLOW_CM:
-            self._drive_at(self.AVOID_SLOW_SPEED, 1)
-        else:
-            self._avoid_side = -self._avoid_side
+            self._coast()
+            servo = self._bank.joints[self.SCAN_CHANNEL]
+            servo.jump(servo.neutral + self.AVOID_ANGLE)
+            time.sleep(1)
+            left_dist = self._ultra.get_distance()
+            servo.jump(servo.neutral - self.AVOID_ANGLE)
+            time.sleep(1)
+            right_dist = self._ultra.get_distance()
+            servo.jump(servo.neutral)
+            time.sleep(1)
+            self._avoid_side = -1 if left_dist > right_dist else 1
             self.steer(self._avoid_side * self.AVOID_TURN, settle=False)
+            self._drive_at(self.AVOID_SLOW_SPEED, 1)
+            time.sleep(2)
+        else:
+            self.steer(0.0, settle=False)
             self._drive_at(self.AVOID_SLOW_SPEED, -1)
-            self._avoid_phase, self._avoid_ticks = 1, 0
+            time.sleep(2)
 
     def _line_step(self):
         """1 = white, 0 = black: steer toward the sensor that still sees the line."""
         left, middle, right = self._line.read()
+        # logger.info("Line sensors: left=%d middle=%d right=%d", left, middle, right)
         if middle == 0:
             offset = 0.0 if left == right else (-self.LINE_TURN if left == 0 else self.LINE_TURN)
         elif left == 0 and right == 1:
@@ -710,9 +697,12 @@ class Robot:
         elif left == 0 and right == 0:
             offset = 0.0
         else:
-            offset = self._steer_offset      
+            self.steer(0.0, settle=False)
+            self._coast()
+            return      
         self.steer(offset, settle=False)
         self._drive_at(self.LINE_SPEED, 1)
+        time.sleep(1)
 
     def _follow_step(self):
         """Keep 25..40 cm behind the object in front, deadband avoids hunting."""

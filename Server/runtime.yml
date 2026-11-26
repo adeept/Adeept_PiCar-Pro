@@ -1,7 +1,7 @@
 # Runtime configuration: server profiles, motor setup and speech model.
 server:
   # app: mobile app profile, web: browser profile. CLI --mode overrides this.
-  mode: app
+  mode: web
   host: 0.0.0.0
   port: 8888
 

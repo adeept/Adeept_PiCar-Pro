@@ -172,8 +172,12 @@ class Robot:
         self._line = LineTracking()
         self._battery = BatteryMonitor()
         self._buzzer = Buzzer()
-        self._mpu6050 = MPU6050()
-        self._oled = OLED()
+        self._mpu6050 = None
+        try:
+            self._mpu6050 = MPU6050()
+        except Exception as e:
+            logger.warning("Failed to initialize MPU6050, Please check whether the MPU6050 is installed.")
+       
         self._system_info = SystemInfo()
         self._ws2812 = WS2812(bright=128)
 
@@ -182,11 +186,17 @@ class Robot:
 
         self._buzzer.play(self.STARTUP_BEEP)
 
-        self._oled_status()
+        self._oled = None
+        try:
+            self._oled = OLED()
+        except Exception as e:
+            logger.warning("Failed to initialize OLED, Please check whether the OLED is installed.")
 
-        self._status_stop = threading.Event()
-        self._status_thread = threading.Thread(target=self._status_loop, args=(self._status_stop,), name="robot-status", daemon=True)
-        self._status_thread.start()
+        if self._oled is not None:
+            self._oled_status()
+            self._status_stop = threading.Event()
+            self._status_thread = threading.Thread(target=self._status_loop, args=(self._status_stop,), name="robot-status", daemon=True)
+            self._status_thread.start()
 
     def _network_status(self):
         try:
